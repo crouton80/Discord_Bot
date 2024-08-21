@@ -2,17 +2,19 @@ import discord
 from discord.ext import commands
 import re
 import random
-
-
-
+import yt_dlp
+import asyncio
 
 intents = discord.Intents.all()
 intents.members = True
 intents.message_content = True
 intents.presences = True
+intents.voice_states = True  # Enable voice state intent
 bot = commands.Bot(command_prefix='?!', intents=intents)
 bot_token = "MTI3NTE1ODIyODczMjIxOTQ5Nw.Gmspg-.Qo5Ran1hhLPS2KufkmNMd_MjgPP8X90afdNlJM"
-
+# Set your specific voice channel ID and YouTube URL
+VOICE_CHANNEL_ID = 805870131267895337
+YOUTUBE_URL = "https://www.youtube.com/watch?v=49l39sSrGqk"
 
 
 @bot.event
@@ -96,6 +98,91 @@ async def on_presence_update(before, after):
                 print("No valid activity detected or 'name' attribute missing")
     else:
         print("No activity change detected")
+
+
+@bot.event
+async def on_voice_state_update(member, before, after):
+    voice_channel = bot.get_channel(VOICE_CHANNEL_ID)
+
+    if voice_channel:
+        print(f"Voice channel found: {voice_channel.name} (ID: {voice_channel.id})")
+    else:
+        print(f"Voice channel with ID {VOICE_CHANNEL_ID} not found.")
+        return
+
+    before_channel_id = before.channel.id if before.channel else None
+    after_channel_id = after.channel.id if after.channel else None
+    print(f"Member {member} - Before channel: {before_channel_id}, After channel: {after_channel_id}")
+
+    if voice_channel.id in {before_channel_id, after_channel_id}:
+        num_members = len(voice_channel.members)
+        print(f"Members in {voice_channel.name}: {num_members}")
+
+        voice_client = discord.utils.get(bot.voice_clients, guild=member.guild)
+        
+        # Handle connection based on member count
+        if num_members > 1:
+            if voice_client:
+                if voice_client.channel.id != VOICE_CHANNEL_ID:
+                    print(f"Bot is in a different channel. Disconnecting...")
+                    await voice_client.disconnect()
+                    print(f"Connecting to {voice_channel.name}")
+                    await join_and_play(voice_channel)
+                else:
+                    print(f"Bot is already in the correct channel: {voice_channel.name}")
+            else:
+                print(f"Bot is not connected. Connecting to {voice_channel.name}")
+                await join_and_play(voice_channel)
+        else:
+            if voice_client and voice_client.channel.id == VOICE_CHANNEL_ID:
+                print(f"One or no members left in {voice_channel.name}. Bot should leave.")
+                await voice_client.disconnect()
+
+async def join_and_play(voice_channel):
+    voice_client = None
+    try:
+        # Bot joins the channel
+        if discord.utils.get(bot.voice_clients, guild=voice_channel.guild):
+            print(f"Bot is already connected to a channel. Skipping connection.")
+            return
+        
+        print(f"Attempting to connect to {voice_channel.name}")
+        voice_client = await voice_channel.connect()
+        print(f"Bot connected to {voice_channel.name}")
+
+        # Set options for the worst quality audio stream
+        ydl_opts = {
+            'format': 'worstaudio/worst',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '48',
+            }],
+        }
+
+        print(f"Fetching audio from {YOUTUBE_URL} with yt-dlp")
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(YOUTUBE_URL, download=False)
+            url2 = info['url']
+            print(f"Extracted URL: {url2}")
+
+        # Play the audio in the voice channel
+        print(f"Playing audio from URL: {url2}")
+        source = await discord.FFmpegOpusAudio.from_probe(url2)
+        voice_client.play(source, after=lambda e: print('Finished playing!'))
+
+        # Wait for the audio to finish playing
+        while voice_client.is_playing():
+            await asyncio.sleep(1)
+        
+        print(f"Audio playback completed.")
+    except Exception as e:
+        print(f"Error during join_and_play: {e}")
+    finally:
+        if voice_client:
+            print(f"Disconnecting from {voice_channel.name}")
+            await voice_client.disconnect()
+            print(f"Bot disconnected from {voice_channel.name}")
 
 
 def run_bot():  
