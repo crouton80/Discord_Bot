@@ -80,18 +80,20 @@ async def on_presence_update(before, after):
             print(f"Varul {after.name} mai joaca si el alt ceva precum: {after.activity.name}")
             
         # Check if the new activity is an activity with that name
-        if before_activity_name is None or before_activity_name.lower() != "counter-strike 2":
-            print("Fara viata/nici o foaia stivata detected")
+        if after_activity_name and after_activity_name.lower() == "counter-strike 2":
 
-            guild = after.guild
-            if guild and guild.id == SERVER_ID:
-                send_channel = bot.get_channel(send_channel_id)
-                await send_channel.send(f"{after.name}Vere te rog eu din suflet du-te si atinge iarba si lasa pacaneaua.")
+            if before_activity_name is None and before_activity_name.lower() != "counter-strike 2":
+                print("Fara viata/nici o foaia stivata detected")
 
+                guild = after.guild
+                if guild and guild.id == SERVER_ID:
+                    send_channel = bot.get_channel(send_channel_id)
+                    await send_channel.send(f"{after.name} Vere te rog eu din suflet du-te si atinge iarba si lasa pacaneaua.")
+
+                else:
+                    print(f"Bot is not in any guild.")
             else:
-                print(f"Bot is not in any guild.")
-        else:
-            print("No valid activity detected or 'name' attribute missing")
+                print("No valid activity detected or 'name' attribute missing")
     else:
         print("No activity change detected")
 
