@@ -53,7 +53,8 @@ async def daily_poll(bot):
     await roles_management.process_poll_results(poll_message, all_answers, correct_answer, bot, channel)
     logger.debug("Finished processing poll results")
 
-    await channel.send("Poll has ended and results have been processed!")
+    await channel.send("S-a terminat.")
+    await channel.send("https://media.tenor.com/PJ2vgGk8bWoAAAAM/itsover-wojack.gif")
     logger.debug("Daily poll completed")
 
 def start_daily_poll(bot):
