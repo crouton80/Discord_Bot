@@ -12,7 +12,7 @@ import test_permissions
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-@tasks.loop(minutes=35)
+@tasks.loop(hours=3)
 async def daily_poll(bot):
     logger.debug("Starting daily_poll")
     channel = bot.get_channel(config.CHANNEL_ID)
@@ -21,7 +21,7 @@ async def daily_poll(bot):
         logger.error(f"Channel with ID {config.CHANNEL_ID} not found.")
         return
 
-    #COMMENT THIS WHEN NOT DEBUGGING
+    #UNCOMMENT THIS WHEn DEBUGGING
 #    await test_permissions.test_channel_permissions(channel)
 
     # Fetch a poll question from trivia API
@@ -53,7 +53,7 @@ async def daily_poll(bot):
     await roles_management.process_poll_results(poll_message, all_answers, correct_answer, bot, channel)
     logger.debug("Finished processing poll results")
 
-    await channel.send("S-a terminat.")
+    await channel.send("S-a terminat sondajul.")
     await channel.send("https://media.tenor.com/PJ2vgGk8bWoAAAAM/itsover-wojack.gif")
     logger.debug("Daily poll completed")
 
