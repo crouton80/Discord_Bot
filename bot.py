@@ -4,6 +4,9 @@ import re
 import random
 import yt_dlp
 import asyncio
+from poll_task import start_daily_poll
+import config
+import html
 
 intents = discord.Intents.all()
 intents.members = True
@@ -11,15 +14,17 @@ intents.message_content = True
 intents.presences = True
 intents.voice_states = True  # Enable voice state intent
 bot = commands.Bot(command_prefix='?!', intents=intents)
-bot_token = "MTI3NTE1ODIyODczMjIxOTQ5Nw.Gmspg-.Qo5Ran1hhLPS2KufkmNMd_MjgPP8X90afdNlJM"
+BOT_TOKEN = config.BOT_TOKEN
 # Set your specific voice channel ID and YouTube URL
-VOICE_CHANNEL_ID = 805870131267895337
-YOUTUBE_URL = "https://www.youtube.com/watch?v=49l39sSrGqk"
+YOUTUBE_URLs = config.YOUTUBE_URLs
+VOICE_CHANNEL_ID = config.VOICE_CHANNEL_ID
+
 
 
 @bot.event
 async def on_ready():
     print(f'{bot.user} s-a conectat....aparent')
+    start_daily_poll(bot) #Start poll when bot is ready
 
 @bot.event
 async def on_member_join(member):
@@ -35,7 +40,7 @@ async def on_message(message):
     content_lower = message.content.lower()
 
     keywords = ['deah','mda','mhm','aha','dea']
-    keywords_funny = ['amuzant', 'am intrebat', 'get laid']
+    keywords_funny = ['amuzant', 'am intrebat', 'get laid', 'ne pasa']
     keywords_prietena = ['pizda', 'proasta', 'pzd', 'prst', 'femeie', 'woman', 'Paula', 'Adriana', 'Paoleu']
     sentences_teachings = [f'Lasa ai sa vezi tu cum e cand o sa ai prietena {message.author.mention}', f'Mai trebuie sa cresti {message.author.mention}', f'Aoleu ce ai cu femeile? {message.author.mention}']
     random_index = random.randint(0,2)
@@ -87,13 +92,13 @@ async def on_presence_update(before, after):
             if before_activity_name is None and before_activity_name.lower() != "counter-strike 2":
                 print("Fara viata/nici o foaia stivata detected")
 
-                guild = after.guild
-                if guild and guild.id == SERVER_ID:
-                    send_channel = bot.get_channel(send_channel_id)
-                    await send_channel.send(f"{after.name} Vere te rog eu din suflet du-te si atinge iarba si lasa pacaneaua.")
+            guild = after.guild
+            if guild and guild.id == SERVER_ID:
+                send_channel = bot.get_channel(send_channel_id)
+                await send_channel.send(f"{after.name} Vere te rog eu din suflet du-te si atinge iarba si lasa pacaneaua.")
 
-                else:
-                    print(f"Bot is not in any guild.")
+                # else:
+                #     print(f"Bot is not in any guild.")
             else:
                 print("No valid activity detected or 'name' attribute missing")
     else:
@@ -139,6 +144,8 @@ async def on_voice_state_update(member, before, after):
                 await voice_client.disconnect()
 
 async def join_and_play(voice_channel):
+    random_index = random.randint(0,len(YOUTUBE_URLs) - 1)
+    chosen_video = YOUTUBE_URLs[random_index]
     voice_client = None
     try:
         # Bot joins the channel
@@ -160,9 +167,9 @@ async def join_and_play(voice_channel):
             }],
         }
 
-        print(f"Fetching audio from {YOUTUBE_URL} with yt-dlp")
+        print(f"Fetching audio from {chosen_video} with yt-dlp")
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(YOUTUBE_URL, download=False)
+            info = ydl.extract_info(chosen_video, download=False)
             url2 = info['url']
             print(f"Extracted URL: {url2}")
 
@@ -186,5 +193,5 @@ async def join_and_play(voice_channel):
 
 
 def run_bot():  
-    bot.run(bot_token)
+    bot.run(BOT_TOKEN)
     
