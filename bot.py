@@ -6,7 +6,6 @@ import yt_dlp
 import asyncio
 from poll_task import start_daily_poll
 import config
-import html
 
 intents = discord.Intents.all()
 intents.members = True
