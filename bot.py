@@ -6,6 +6,7 @@ import yt_dlp
 import asyncio
 from poll_task import start_daily_poll
 import config
+import youtube
 
 intents = discord.Intents.all()
 intents.members = True
@@ -18,7 +19,15 @@ BOT_TOKEN = config.BOT_TOKEN
 YOUTUBE_URLs = config.YOUTUBE_URLs
 VOICE_CHANNEL_ID = config.VOICE_CHANNEL_ID
 
+async def load_youtube_cog():
+    try:
+        await bot.load_extension('youtube')
+        print("YouTube cog loaded successfully.")
+    except Exception as e:
+        print(f"Error loading YouTube cog: {e}")
 
+
+asyncio.run(load_youtube_cog())
 
 @bot.event
 async def on_ready():
@@ -36,6 +45,8 @@ async def on_message(message):
     if message.author == bot.user:
         return
     
+    await bot.process_commands(message)
+
     content_lower = message.content.lower()
 
     keywords = ['deah','mda','mhm','aha','dea']
@@ -86,7 +97,7 @@ async def on_presence_update(before, after):
             print(f"Varul {after.name} mai joaca si el alt ceva precum: {after.activity.name}")
             
         # Check if the new activity is an activity with that name
-        if after_activity_name and after_activity_name.lower() == "counter-strike 2":
+        if after_activity_name and after_activity_name.lower() == "counter-strike 2" and after_activity_name.lower() != before_activity_name.lower():
 
             if before_activity_name is None and before_activity_name.lower() != "counter-strike 2":
                 print("Fara viata/nici o foaia stivata detected")
