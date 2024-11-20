@@ -2,10 +2,17 @@ import discord
 from discord.ext import commands
 import yt_dlp
 import logging
+import os
+
+# Set working directory to user's home directory
+# os.chdir(os.path.expanduser("~"))
 
 # Initialize logger for debugging
-logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger('yt_dlp')
+logger.setLevel(logging.DEBUG)
 
+banned_users = [330710707010142209]
 
 @commands.command(name='join')
 async def join(ctx):
@@ -22,39 +29,6 @@ async def join(ctx):
 async def leave(ctx):
     if ctx.voice_client:
         await ctx.voice_client.disconnect()
-
-# @commands.command(name='play')
-# async def play(self, ctx, *, search: str):
-#     logger.debug("***play command received***")
-
-#     # Get the voice client for the guild
-#     voice_client = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
-
-#     # Check if the user is in a voice channel
-#     if ctx.author.voice is None or ctx.author.voice.channel is None:
-#         await ctx.send("Ce dai ma nu stii sa injuri? Intra pe un canal intai sobolane.")
-#         return
-    
-#     #If bot is not connected, connect it to the user's voice channel
-#     if voice_client is None:
-#         channel = ctx.author.voice.channel
-#         logger.debug(f"Connecting to {channel}...")
-#         await ctx.send(f"Connecting to {channel}...")
-#         try:
-#             voice_client = await channel.connect()
-#         except Exception as e:
-#             await ctx.send(f"Failed to connect to {channel}. Error: {e}")
-#             return
-
-#     # If the bot is already connected but in a different voice channel, switch it to the user's channel
-#     elif voice_client.channel != ctx.author.voice.channel:
-#         logger.debug(f"Moving to {ctx.author.voice.channel}...")
-#         await ctx.send(f"Moving to {ctx.author.voice.channel}...")
-#         await voice_client.move_to(ctx.author.voice.channel)
-
-#     # Play the audio
-#     await self.play_audio(ctx, search, voice_client)
-    
 
 @commands.command(name='pause')
 async def pause(ctx):
@@ -98,8 +72,10 @@ class YouTubeCog(commands.Cog):
         ydl_opts = {
             'format': 'bestaudio/best',
             'noplaylist': 'True',
-            'quiet': True,
-            'default_search': 'ytsearch1'
+            'quiet': False,
+            'default_search': 'ytsearch1',
+            'verbose': True,
+            'cookies': r'C:\Users\Lorgar\Downloads\cookies.txt'
         }
 
         try:
@@ -152,6 +128,10 @@ class YouTubeCog(commands.Cog):
 
     @commands.command(name='play')
     async def play(self, ctx, *, search: str):
+        #Check if user is in banned list
+        if ctx.author.id in banned_users:
+            await ctx.send("Taci dreq.")
+            return
         await self.play_audio(ctx, search)
 
 
