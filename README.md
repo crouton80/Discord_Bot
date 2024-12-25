@@ -32,9 +32,16 @@ Logs errors for debugging purposes.
 Commands Overview
 Command	Description
 ?!play <url>	Plays a song from YouTube or searches for a query.
+
 ?!pause	Pauses the current playback.
+
 ?!resume	Resumes paused playback.
+
 ?!stop	Stops the playback.
+
 ?!leave	Disconnects the bot from the voice channel.
+
 ?!stop_joining	Disables auto-joining voice channels.
+
 ?!start_joining	Enables auto-joining voice channels.
+
