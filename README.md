@@ -1,6 +1,4 @@
-Here's a reformatted version of your README that enhances readability and adds structure for a more aesthetically pleasing and user-friendly experience:
 
----
 
 # 🎶 Discord Music Bot with Voice Channel Automation
 
