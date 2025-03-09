@@ -1,0 +1,23 @@
+# Discord library (discord.py or a maintained fork if preferred)
+discord.py>=1.7.3
+
+# yt-dlp for YouTube video/audio extraction
+yt-dlp>=2025.01.26
+
+# BeautifulSoup for HTML parsing
+beautifulsoup4>=4.11.1
+
+# lxml for fast, robust XML/HTML parsing (used by BeautifulSoup)
+lxml>=4.9.1
+
+# requests for simple HTTP requests (if needed in other parts)
+requests>=2.32.3
+
+# cloudscraper to bypass Cloudflare anti-bot measures when scraping sites like 9GAG
+cloudscraper>=1.2.60
+
+# Selenium for browser automation (if you need it for dynamic content)
+selenium>=4.10.0
+
+# webdriver-manager to automatically manage browser drivers (for Selenium)
+webdriver-manager>=3.8.6
