@@ -1,8 +1,8 @@
-BOT_TOKEN = "MTI3NTE1ODIyODczMjIxOTQ5Nw.Gmspg-.Qo5Ran1hhLPS2KufkmNMd_MjgPP8X90afdNlJM"
-TRIVIA_API_URL = "https://opentdb.com/api.php?amount=1&type=multiple"
-CHANNEL_ID = [668446349309640704, 1155047589939523674]
-INCORRECT_ROLE_ID = 1278465140626427986 # role assigned if user choses wrong answer
-TIME_LIMIT_SECONDS = 30 * 60   # 30 minutes time limit for response
-VOICE_CHANNEL_ID = [805870131267895337, 1139931838660476952]
-YOUTUBE_URLs = ["https://www.youtube.com/watch?v=49l39sSrGqk","https://www.youtube.com/watch?v=1ncDWahReQE","https://youtu.be/zrqLSi8NMaU?si=yee_WKVQ0BwQDxLC","https://www.youtube.com/watch?v=St2eGZAYqAw"]
+BOT_TOKEN = "<Your BOT token here"
+TRIVIA_API_URL = "<Your Trivia API URL here>"
+CHANNEL_ID = [<channel_one>, <channel_two>, etc.]
+INCORRECT_ROLE_ID = 1234567890 # role assigned if user choses wrong answer
+TIME_LIMIT_SECONDS = 60   # time limit for response IN SECONDS
+VOICE_CHANNEL_ID = [12314125115, 124152352341431]
+YOUTUBE_URLs = ["YOUTUBE_URL1","YOUTUBE_URL2","YOUTUBE_URL3","ETC"]
 
