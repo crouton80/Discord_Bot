@@ -7,6 +7,9 @@ import asyncio
 from poll_task import start_daily_poll
 import config
 import youtube
+from config import CHANNEL_ID
+import meme_task
+
 
 intents = discord.Intents.all()
 intents.members = True
@@ -18,6 +21,7 @@ BOT_TOKEN = config.BOT_TOKEN
 # Set your specific voice channel ID and YouTube URL
 YOUTUBE_URLs = config.YOUTUBE_URLs
 VOICE_CHANNEL_ID = config.VOICE_CHANNEL_ID
+join_enabled = True
 
 async def load_youtube_cog():
     try:
@@ -33,6 +37,7 @@ asyncio.run(load_youtube_cog())
 async def on_ready():
     print(f'{bot.user} s-a conectat....aparent')
     start_daily_poll(bot) #Start poll when bot is ready
+    meme_task.start_meme_poster(bot) # Start meme poster when bot is ready
 
 @bot.event
 async def on_member_join(member):
@@ -50,7 +55,7 @@ async def on_message(message):
     content_lower = message.content.lower()
 
     keywords = ['deah','mda','mhm','aha','dea']
-    keywords_funny = ['amuzant', 'am intrebat', 'get laid', 'ne pasa']
+    keywords_funny = ['amuzant', 'am intrebat', 'get laid', 'ne pasa', 'mata']
     keywords_prietena = ['pizda', 'proasta', 'pzd', 'prst', 'femeie', 'woman', 'Paula', 'Adriana', 'Paoleu']
     sentences_teachings = [f'Lasa ai sa vezi tu cum e cand o sa ai prietena {message.author.mention}', f'Mai trebuie sa cresti {message.author.mention}', f'Aoleu ce ai cu femeile? {message.author.mention}']
     random_index = random.randint(0,2)
@@ -79,13 +84,10 @@ async def on_message(message):
     
 @bot.event
 async def on_presence_update(before, after):
-    send_channel_id = 668446349309640704
-    # check_channel_id = 1045795388344516722
-
-    SERVER_ID = 660603940416651264
-
-    # check_channel = bot.get_channel(check_channel_id)
+    send_channel_id = [668446349309640704, 1139931838660476949]
+    SERVER_ID = [660603940416651264, 1139931837381234708] 
     
+
     # Check if the activity changed
     if before.activity != after.activity:
         before_activity_name = before.activity.name if before.activity else None
@@ -95,63 +97,77 @@ async def on_presence_update(before, after):
         # Make sure after.activity is not None and has the 'name' attribute
         if after.activity and hasattr(after.activity, 'name') and after_activity_name.lower() != "counter-strike 2":
             print(f"Varul {after.name} mai joaca si el alt ceva precum: {after.activity.name}")
-            
-        # Check if the new activity is an activity with that name
-        if after_activity_name and after_activity_name.lower() == "counter-strike 2" and after_activity_name.lower() != before_activity_name.lower():
-
-            if before_activity_name is None and before_activity_name.lower() != "counter-strike 2":
-                print("Fara viata/nici o foaia stivata detected")
-
-            guild = after.guild
-            if guild and guild.id == SERVER_ID:
-                send_channel = bot.get_channel(send_channel_id)
-                await send_channel.send(f"{after.name} Vere te rog eu din suflet du-te si atinge iarba si lasa pacaneaua.")
-
-                # else:
-                #     print(f"Bot is not in any guild.")
-            else:
-                print("No valid activity detected or 'name' attribute missing")
-    else:
-        print("No activity change detected")
+            for channel_id in send_channel_id:
+                send_channel = discord.utils.get(after.guild.text_channels, id=channel_id)
+                if send_channel:
+                    print(f"Varul {after.name} mai face si el alt ceva precum: {after.activity.name}")
+                    #await send_channel.send(f"Varul {after.name} mai face si el alt ceva precum: {after.activity.name}")
+        elif after_activity_name and after_activity_name.lower() == "counter-strike 2":
+            if not before_activity_name or before_activity_name.lower() != after_activity_name.lower():
+                guild = after.guild
+                if guild and guild.id in SERVER_ID:
+                    for channel_id in send_channel_id:
+                        send_channel = discord.utils.get(guild.text_channels, id=channel_id)
+                        if send_channel:
+                            await send_channel.send(f"{after.name} Vere te rog eu din suflet du-te si atinge iarba si lasa pacaneaua.")
+                else:
+                    print("No valid activity detected or 'name' attribute missing")
+        else:
+            print("No activity change detected")
 
 
 @bot.event
 async def on_voice_state_update(member, before, after):
-    voice_channel = bot.get_channel(VOICE_CHANNEL_ID)
+    global join_enabled
 
-    if voice_channel:
-        print(f"Voice channel found: {voice_channel.name} (ID: {voice_channel.id})")
+    # Check if join feature is enabled
+    if not join_enabled:
+        return  # Skip event handling if it isn't
+
+    # Retrieve voice channels from VOICE_CHANNEL_ID (supports both list and single value)
+    voice_channels = []
+    if isinstance(VOICE_CHANNEL_ID, list):
+        for vc_id in VOICE_CHANNEL_ID:
+            channel = bot.get_channel(vc_id)
+            if channel:
+                voice_channels.append(channel)
     else:
-        print(f"Voice channel with ID {VOICE_CHANNEL_ID} not found.")
+        channel = bot.get_channel(VOICE_CHANNEL_ID)
+        if channel:
+            voice_channels.append(channel)
+    
+    if not voice_channels:
+        print(f"Voice channel(s) with ID(s) {VOICE_CHANNEL_ID} not found.")
         return
 
-    before_channel_id = before.channel.id if before.channel else None
-    after_channel_id = after.channel.id if after.channel else None
-    print(f"Member {member} - Before channel: {before_channel_id}, After channel: {after_channel_id}")
+    for voice_channel in voice_channels:
+        print(f"Voice channel found: {voice_channel.name} (ID: {voice_channel.id})")
+        before_channel_id = before.channel.id if before.channel else None
+        after_channel_id = after.channel.id if after.channel else None
+        print(f"Member {member} - Before channel: {before_channel_id}, After channel: {after_channel_id}")
 
-    if voice_channel.id in {before_channel_id, after_channel_id}:
-        num_members = len(voice_channel.members)
-        print(f"Members in {voice_channel.name}: {num_members}")
-
-        voice_client = discord.utils.get(bot.voice_clients, guild=member.guild)
-        
-        # Handle connection based on member count
-        if num_members > 1:
-            if voice_client:
-                if voice_client.channel.id != VOICE_CHANNEL_ID:
-                    print(f"Bot is in a different channel. Disconnecting...")
-                    await voice_client.disconnect()
-                    print(f"Connecting to {voice_channel.name}")
-                    await join_and_play(voice_channel)
+        if voice_channel.id in {before_channel_id, after_channel_id}:
+            num_members = len(voice_channel.members)
+            print(f"Members in {voice_channel.name}: {num_members}")
+            voice_client = discord.utils.get(bot.voice_clients, guild=member.guild)
+            
+            # Handle connection based on member count
+            if num_members > 1:
+                if voice_client:
+                    if voice_client.channel.id != voice_channel.id:
+                        print(f"Bot is in a different channel. Disconnecting...")
+                        await voice_client.disconnect()
+                        print(f"Connecting to {voice_channel.name}")
+                        await join_and_play(voice_channel)
+                    else:
+                        print(f"Bot is already in the correct channel: {voice_channel.name}")
                 else:
-                    print(f"Bot is already in the correct channel: {voice_channel.name}")
+                    print(f"Bot is not connected. Connecting to {voice_channel.name}")
+                    await join_and_play(voice_channel)
             else:
-                print(f"Bot is not connected. Connecting to {voice_channel.name}")
-                await join_and_play(voice_channel)
-        else:
-            if voice_client and voice_client.channel.id == VOICE_CHANNEL_ID:
-                print(f"One or no members left in {voice_channel.name}. Bot should leave.")
-                await voice_client.disconnect()
+                if voice_client and voice_client.channel.id == voice_channel.id:
+                    print(f"One or no members left in {voice_channel.name}. Bot should leave.")
+                    await voice_client.disconnect()
 
 async def join_and_play(voice_channel):
     random_index = random.randint(0,len(YOUTUBE_URLs) - 1)
@@ -202,6 +218,21 @@ async def join_and_play(voice_channel):
             print(f"Bot disconnected from {voice_channel.name}")
 
 
+@bot.command(name='stop_bullying')
+async def stop_bullying(ctx):
+    global join_enabled
+    join_enabled = False
+    await ctx.send("The bot will no longer respond to voice state updates.")
+
+
+@bot.command(name='start_bullying')
+async def start_bullying(ctx):
+    global join_enabled
+    join_enabled = True
+    await ctx.send("The bot will now respond to voice state updates.")
+
+
+
+
 def run_bot():  
     bot.run(BOT_TOKEN)
-    
