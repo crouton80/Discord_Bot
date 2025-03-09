@@ -80,5 +80,3 @@ You can modify the bot's behavior, including auto-joining voice channels and mor
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
 
 ---
-
-This formatting provides clear, structured sections with bolded headings and bullet points, making it easier to follow. You can also update the links and commands as per your project specifics.
