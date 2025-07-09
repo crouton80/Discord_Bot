@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def fetch_9gag_meme():
     try:
-        url = "https://9gag.com/fresh"
+        url = "https://9gag.com/trending"
         
         # Set up Firefox in headless mode
         options = webdriver.FirefoxOptions()
@@ -44,7 +44,7 @@ def fetch_9gag_meme():
     
     except Exception as e:
         logger.error(f"Failed to fetch 9GAG: {e}")
-        return None
+
 
 @tasks.loop(minutes=10)
 async def post_meme(bot):

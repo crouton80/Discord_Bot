@@ -54,7 +54,7 @@ async def on_message(message):
 
     content_lower = message.content.lower()
 
-    keywords = ['deah','mda','mhm','aha','dea']
+    keywords = ['deah','mda','mhm','aha','dea', 'real', 'lol']
     keywords_funny = ['amuzant', 'am intrebat', 'get laid', 'ne pasa', 'mata']
     keywords_prietena = ['pizda', 'proasta', 'pzd', 'prst', 'femeie', 'woman', 'Paula', 'Adriana', 'Paoleu']
     sentences_teachings = [f'Lasa ai sa vezi tu cum e cand o sa ai prietena {message.author.mention}', f'Mai trebuie sa cresti {message.author.mention}', f'Aoleu ce ai cu femeile? {message.author.mention}']
@@ -79,7 +79,7 @@ async def on_message(message):
         else:
             pass
     
-    if any(word in content_lower for word in ['ceseu', 'csgo', 'cs', 'skin']):
+    if any(word in content_lower for word in ['ceseu', 'csgo', 'cs', 'skin', 'gaming']):
         await message.channel.send(f'{message.author.mention} Nu stii ma sa joci si tu jocuri adevarate gen Cyberpunk? alo')
     
 @bot.event
