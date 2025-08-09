@@ -3,7 +3,6 @@ import logging
 import asyncio
 import discord
 
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 

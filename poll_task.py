@@ -8,9 +8,7 @@ import config
 import html
 import logging
 import test_permissions
-import youtube
 
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 @tasks.loop(hours=1)

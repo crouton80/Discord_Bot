@@ -3,10 +3,6 @@ import logging
 import yt_dlp
 from typing import Optional, Dict, Any
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger('youtube_downloader')
 
 class YouTubeDownloader:

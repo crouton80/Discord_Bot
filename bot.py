@@ -4,10 +4,9 @@ import re
 import random
 import yt_dlp
 import asyncio
+import logging
 from poll_task import start_daily_poll
 import config
-import youtube
-from config import CHANNEL_ID
 import meme_task
 
 
@@ -17,6 +16,7 @@ intents.message_content = True
 intents.presences = True
 intents.voice_states = True  # Enable voice state intent
 bot = commands.Bot(command_prefix='?!', intents=intents)
+logger = logging.getLogger(__name__)
 BOT_TOKEN = config.BOT_TOKEN
 # Set your specific voice channel ID and YouTube URL
 YOUTUBE_URLs = config.YOUTUBE_URLs
@@ -26,16 +26,16 @@ join_enabled = True
 async def load_youtube_cog():
     try:
         await bot.load_extension('youtube')
-        print("YouTube cog loaded successfully.")
+        logger.info("YouTube cog loaded successfully.")
     except Exception as e:
-        print(f"Error loading YouTube cog: {e}")
+        logger.error(f"Error loading YouTube cog: {e}")
 
 
 asyncio.run(load_youtube_cog())
 
 @bot.event
 async def on_ready():
-    print(f'{bot.user} s-a conectat....aparent')
+    logger.info(f'{bot.user} s-a conectat....aparent')
     start_daily_poll(bot) #Start poll when bot is ready
     meme_task.start_meme_poster(bot) # Start meme poster when bot is ready
 
@@ -92,15 +92,15 @@ async def on_presence_update(before, after):
     if before.activity != after.activity:
         before_activity_name = before.activity.name if before.activity else None
         after_activity_name = after.activity.name if after.activity else None
-        print(f"{after.name} has changed activity from {before_activity_name} to {after_activity_name}")
+        logger.debug(f"{after.name} has changed activity from {before_activity_name} to {after_activity_name}")
 
         # Make sure after.activity is not None and has the 'name' attribute
         if after.activity and hasattr(after.activity, 'name') and after_activity_name.lower() != "counter-strike 2":
-            print(f"Varul {after.name} mai joaca si el alt ceva precum: {after.activity.name}")
+            logger.debug(f"Varul {after.name} mai joaca si el alt ceva precum: {after.activity.name}")
             for channel_id in send_channel_id:
                 send_channel = discord.utils.get(after.guild.text_channels, id=channel_id)
                 if send_channel:
-                    print(f"Varul {after.name} mai face si el alt ceva precum: {after.activity.name}")
+                    logger.debug(f"Varul {after.name} mai face si el alt ceva precum: {after.activity.name}")
                     #await send_channel.send(f"Varul {after.name} mai face si el alt ceva precum: {after.activity.name}")
         elif after_activity_name and after_activity_name.lower() == "counter-strike 2":
             if not before_activity_name or before_activity_name.lower() != after_activity_name.lower():
@@ -111,9 +111,9 @@ async def on_presence_update(before, after):
                         if send_channel:
                             await send_channel.send(f"{after.name} Vere te rog eu din suflet du-te si atinge iarba si lasa pacaneaua.")
                 else:
-                    print("No valid activity detected or 'name' attribute missing")
+                    logger.debug("No valid activity detected or 'name' attribute missing")
         else:
-            print("No activity change detected")
+            logger.debug("No activity change detected")
 
 
 @bot.event
@@ -137,36 +137,36 @@ async def on_voice_state_update(member, before, after):
             voice_channels.append(channel)
     
     if not voice_channels:
-        print(f"Voice channel(s) with ID(s) {VOICE_CHANNEL_ID} not found.")
+        logger.warning(f"Voice channel(s) with ID(s) {VOICE_CHANNEL_ID} not found.")
         return
 
     for voice_channel in voice_channels:
-        print(f"Voice channel found: {voice_channel.name} (ID: {voice_channel.id})")
+        logger.debug(f"Voice channel found: {voice_channel.name} (ID: {voice_channel.id})")
         before_channel_id = before.channel.id if before.channel else None
         after_channel_id = after.channel.id if after.channel else None
-        print(f"Member {member} - Before channel: {before_channel_id}, After channel: {after_channel_id}")
+        logger.debug(f"Member {member} - Before channel: {before_channel_id}, After channel: {after_channel_id}")
 
         if voice_channel.id in {before_channel_id, after_channel_id}:
             num_members = len(voice_channel.members)
-            print(f"Members in {voice_channel.name}: {num_members}")
+            logger.debug(f"Members in {voice_channel.name}: {num_members}")
             voice_client = discord.utils.get(bot.voice_clients, guild=member.guild)
             
             # Handle connection based on member count
             if num_members > 1:
                 if voice_client:
                     if voice_client.channel.id != voice_channel.id:
-                        print(f"Bot is in a different channel. Disconnecting...")
+                        logger.info(f"Bot is in a different channel. Disconnecting...")
                         await voice_client.disconnect()
-                        print(f"Connecting to {voice_channel.name}")
+                        logger.info(f"Connecting to {voice_channel.name}")
                         await join_and_play(voice_channel)
                     else:
-                        print(f"Bot is already in the correct channel: {voice_channel.name}")
+                        logger.debug(f"Bot is already in the correct channel: {voice_channel.name}")
                 else:
-                    print(f"Bot is not connected. Connecting to {voice_channel.name}")
+                    logger.info(f"Bot is not connected. Connecting to {voice_channel.name}")
                     await join_and_play(voice_channel)
             else:
                 if voice_client and voice_client.channel.id == voice_channel.id:
-                    print(f"One or no members left in {voice_channel.name}. Bot should leave.")
+                    logger.info(f"One or no members left in {voice_channel.name}. Bot should leave.")
                     await voice_client.disconnect()
 
 async def join_and_play(voice_channel):
@@ -176,46 +176,41 @@ async def join_and_play(voice_channel):
     try:
         # Bot joins the channel
         if discord.utils.get(bot.voice_clients, guild=voice_channel.guild):
-            print(f"Bot is already connected to a channel. Skipping connection.")
+            logger.debug(f"Bot is already connected to a channel. Skipping connection.")
             return
         
-        print(f"Attempting to connect to {voice_channel.name}")
+        logger.info(f"Attempting to connect to {voice_channel.name}")
         voice_client = await voice_channel.connect()
-        print(f"Bot connected to {voice_channel.name}")
+        logger.info(f"Bot connected to {voice_channel.name}")
 
-        # Set options for the worst quality audio stream
+        # Options for a lightweight audio stream
         ydl_opts = {
-            'format': 'worstaudio/worst',
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '48',
-            }],
+            'format': 'worstaudio/worst'
         }
 
-        print(f"Fetching audio from {chosen_video} with yt-dlp")
+        logger.debug(f"Fetching audio from {chosen_video} with yt-dlp")
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(chosen_video, download=False)
             url2 = info['url']
-            print(f"Extracted URL: {url2}")
+            logger.debug(f"Extracted URL: {url2}")
 
         # Play the audio in the voice channel
-        print(f"Playing audio from URL: {url2}")
+        logger.info(f"Playing audio from URL: {url2}")
         source = await discord.FFmpegOpusAudio.from_probe(url2)
-        voice_client.play(source, after=lambda e: print('Finished playing!'))
+        voice_client.play(source, after=lambda e: logger.info('Finished playing!'))
 
         # Wait for the audio to finish playing
         while voice_client.is_playing():
             await asyncio.sleep(1)
         
-        print(f"Audio playback completed.")
+        logger.info(f"Audio playback completed.")
     except Exception as e:
-        print(f"Error during join_and_play: {e}")
+        logger.error(f"Error during join_and_play: {e}")
     finally:
         if voice_client:
-            print(f"Disconnecting from {voice_channel.name}")
+            logger.info(f"Disconnecting from {voice_channel.name}")
             await voice_client.disconnect()
-            print(f"Bot disconnected from {voice_channel.name}")
+            logger.info(f"Bot disconnected from {voice_channel.name}")
 
 
 @bot.command(name='stop_bullying')

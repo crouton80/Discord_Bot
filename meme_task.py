@@ -11,6 +11,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 def fetch_9gag_meme():
+    """
+    Fetches a random meme URL from 9gag trending page.
+    Returns:
+        str or None: Meme URL or None if not found.
+    """
     try:
         url = "https://9gag.com/trending"
         
@@ -24,7 +29,7 @@ def fetch_9gag_meme():
         
         driver.get(url)
         # Wait a few seconds for JavaScript to load the dynamic content
-        time.sleep(6)
+        time.sleep(6)  # Consider offloading Selenium to a thread if used in async contexts
         
         # Parse the rendered page source with BeautifulSoup
         soup = BeautifulSoup(driver.page_source, "html.parser")

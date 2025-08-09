@@ -26,8 +26,8 @@ This project is a customizable Discord bot designed to offer a wide range of fun
 - **Control Commands**: Enable or disable auto-joining behavior dynamically.
 
 **Commands:**
-- `?!stop_joining`: Disables the auto-joining functionality.
-- `?!start_joining`: Re-enables auto-joining.
+- `?!stop_bullying`: Disables the auto-joining functionality.
+- `?!start_bullying`: Re-enables auto-joining.
 
 ---
 

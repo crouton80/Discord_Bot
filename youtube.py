@@ -7,10 +7,8 @@ import os
 # Set working directory to user's home directory
 # os.chdir(os.path.expanduser("~"))
 
-# Initialize logger for debugging
-logging.basicConfig(level=logging.DEBUG)
+# Initialize logger for debugging (configured in main entrypoint)
 logger = logging.getLogger('yt_dlp')
-logger.setLevel(logging.DEBUG)
 
 banned_users = [330710707010142209]
 
@@ -75,7 +73,8 @@ class YouTubeCog(commands.Cog):
             'quiet': False,
             'default_search': 'ytsearch1',
             'verbose': True,
-            'cookies': r'C:\Users\Lorgar\Downloads\cookies.txt'
+            # Prefer cookies from browser; fall back to no auth
+            'cookiesfrombrowser': ('chrome', None, None, None)
         }
 
         try:
@@ -100,7 +99,7 @@ class YouTubeCog(commands.Cog):
 
 
     @commands.command(name='reload')
-    async def reload(ctx, extension):
+    async def reload(self, ctx, extension):
         await ctx.bot.reload_extension(extension)
         await ctx.send(f"Reloaded {extension} successfully.")
 

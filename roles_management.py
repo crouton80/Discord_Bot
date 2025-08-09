@@ -49,8 +49,8 @@ async def process_poll_results(message, all_answers, correct_answer, bot, channe
         logger.warning("No reactions found on the message")
         return
 
+    users_answered = set()
     try:
-        users_answered = set()
         for reaction in message.reactions:
             logger.debug(f"Processing reaction: {reaction.emoji}")
 
@@ -128,8 +128,8 @@ async def assign_roles_to_non_participants(message, users_answered):
     role = guild.get_role(config.INCORRECT_ROLE_ID)
 
     if role is None:
-        print(f"Error: Role with ID {config.INCORRECT_ROLE_ID} be found.")
-        return #Stop further execution
+        logger.error(f"Error: Role with ID {config.INCORRECT_ROLE_ID} be found.")
+        return  # Stop further execution
 
     for member in guild.members:
         if member.id not in users_answered and not member.bot:
