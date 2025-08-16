@@ -4,11 +4,19 @@ import re
 import random
 import yt_dlp
 import asyncio
+import os
 from poll_task import start_daily_poll
 import config
 import youtube
 from config import CHANNEL_ID
 import meme_task
+
+# FFmpeg path for Windows - with fallback
+FFMPEG_PATH = r"C:\Users\alaric\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-7.1.1-full_build\bin\ffmpeg.exe"
+
+# Fallback: if the specific path doesn't exist, try to find ffmpeg in PATH
+if not os.path.exists(FFMPEG_PATH):
+    FFMPEG_PATH = "ffmpeg"  # Let discord.py find it in PATH
 
 
 intents = discord.Intents.all()
@@ -201,7 +209,7 @@ async def join_and_play(voice_channel):
 
         # Play the audio in the voice channel
         print(f"Playing audio from URL: {url2}")
-        source = await discord.FFmpegOpusAudio.from_probe(url2)
+        source = await discord.FFmpegOpusAudio.from_probe(url2, executable=FFMPEG_PATH)
         voice_client.play(source, after=lambda e: print('Finished playing!'))
 
         # Wait for the audio to finish playing
