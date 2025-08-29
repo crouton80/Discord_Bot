@@ -8,8 +8,10 @@ import os
 from poll_task import start_daily_poll
 import config
 import youtube
-from config import CHANNEL_ID
+from config import CHANNEL_ID, NINEGAG_ENABLED, POLLS_ENABLED
 import meme_task
+from settings import get
+from settings import set
 
 # FFmpeg path for Windows - with fallback
 FFMPEG_PATH = r"C:\Users\alaric\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-7.1.1-full_build\bin\ffmpeg.exe"
@@ -44,8 +46,10 @@ asyncio.run(load_youtube_cog())
 @bot.event
 async def on_ready():
     print(f'{bot.user} s-a conectat....aparent')
-    start_daily_poll(bot) #Start poll when bot is ready
-    meme_task.start_meme_poster(bot) # Start meme poster when bot is ready
+    if get("polls_enabled"):
+        start_daily_poll(bot)
+    if get("9gag_enabled"):
+        meme_task.start_meme_poster(bot)
 
 @bot.event
 async def on_member_join(member):
@@ -239,7 +243,15 @@ async def start_bullying(ctx):
     join_enabled = True
     await ctx.send("The bot will now respond to voice state updates.")
 
+@bot.command(name='toggle_polls')
+async def toggle_polls(ctx):
+    cur = set("polls_enabled", not get("polls_enabled"))
+    await ctx.send(f"Poll posting now {'ON' if cur else 'OFF'}.")
 
+@bot.command()
+async def toggle_9gag(ctx):
+    cur = set("9gag_enabled", not get("9gag_enabled"))
+    await ctx.send(f"9GAG memes now {'ON' if cur else 'OFF'}.")
 
 
 def run_bot():  

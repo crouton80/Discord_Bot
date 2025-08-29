@@ -60,4 +60,5 @@ async def post_meme(bot):
         logger.error("No meme found to send.")
 
 def start_meme_poster(bot):
-    post_meme.start(bot)
+    if config.NINEGAG_ENABLED:      
+        post_meme.start(bot)
