@@ -134,3 +134,6 @@ temp_audio_*.mp4
 temp_audio_*.webm
 temp_audio_*.m4a
 *.tmp
+
+
+config.py

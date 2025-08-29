@@ -24,8 +24,8 @@ if not os.path.exists(FFMPEG_PATH):
     FFMPEG_PATH = "ffmpeg"  # Let discord.py find it in PATH
 
 FFMPEG_OPTIONS = {
-    "before_options": "-nostdin -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-    "options": "-vn -b:a 128k",
+    "before_options": "-nostdin -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -y",
+    "options": "-vn -b:a 128k -ac 2 -ar 48000",
 }
 
 @commands.command(name='join')
@@ -76,10 +76,23 @@ class YouTubeCog(commands.Cog):
             await ctx.send("You need to be in a voice channel.")
             return None
 
-        target: discord.VoiceChannel = ctx.author.voice.channel
+        target: discord.VoiceChannel = ctx.author.voice.channel # 
 
         async with self._join_locks[ctx.guild.id]:
             vc: discord.VoiceClient | None = ctx.voice_client
+            
+            # Check for multiple voice clients (potential conflict)
+            all_voice_clients = ctx.guild.voice_channels
+            connected_clients = [client for client in ctx.bot.voice_clients if client.guild == ctx.guild]
+            
+            if len(connected_clients) > 1:
+                logger.warning(f"Multiple voice clients detected: {len(connected_clients)}")
+                # Disconnect all except the one we want
+                for client in connected_clients:
+                    if client != vc:
+                        await client.disconnect(force=True)
+                        logger.info(f"Disconnected conflicting voice client from {client.channel.name}")
+            
             try:
                 if vc and vc.channel and vc.channel.id == target.id:
                     return vc
@@ -98,10 +111,15 @@ class YouTubeCog(commands.Cog):
         vc = await self._ensure_connected(ctx)
         if not vc:
             return
+            
+        # Ensure voice client is ready
+        if not vc.is_connected():
+            await ctx.send("❌ Voice client is not connected properly.")
+            return
 
-        # Search for the YouTube video with these options (kept from your code)
+        # Search for the YouTube video with improved options - allow m3u8 as fallback
         ydl_opts = {
-            "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio[ext=mp3]/bestaudio/best",
+            "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio/best[height<=?720]",
             "noplaylist": True,
             "quiet": False,
             "default_search": "ytsearch1",
@@ -113,13 +131,13 @@ class YouTubeCog(commands.Cog):
             "prefer_ffmpeg": True,
             "extractors_args": {
                 "youtube": {
-                    "player_client": ["android", "web"],  # Use multiple clients
+                    "player_client": ["web", "android", "mweb"],  # Added mweb for broader compatibility
                     "formats": ["missing_pot"]  # Allow formats without PO token
                 }
             },
-            "format_sort": ["ext:mp4:m4a", "ext:webm", "ext:mp3", "acodec:mp4a", "acodec:opus", "acodec:vorbis"],
+            "format_sort": ["ext:webm", "ext:mp4:m4a", "ext:mp3", "acodec:opus", "acodec:mp4a", "acodec:vorbis"],
             "format_sort_force": True,
-            "no_hls": True,  # Try to avoid HLS
+            "prefer_insecure": False,  # Prefer secure connections
         }
 
         try:
@@ -140,24 +158,83 @@ class YouTubeCog(commands.Cog):
             if vc.is_playing() or vc.is_paused():
                 vc.stop()
 
-            # Try direct FFmpegOpusAudio first, then fallback to PCM
+            # Try multiple audio source creation methods with better error handling
+            source = None
+            
+            # Method 1: Try FFmpegOpusAudio with Windows-optimized options
             try:
-                logger.debug("Attempting to create FFmpegOpusAudio...")
-                source = discord.FFmpegOpusAudio(url, executable=FFMPEG_PATH, **FFMPEG_OPTIONS)
-                logger.debug("FFmpegOpusAudio created successfully")
+                logger.debug("Attempting to create FFmpegOpusAudio with Windows options...")
+                windows_options = {
+                    "before_options": "-nostdin -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -y",
+                    "options": "-vn -b:a 128k -ac 2 -ar 48000 -f opus"
+                }
+                source = discord.FFmpegOpusAudio(url, executable=FFMPEG_PATH, **windows_options)
+                logger.debug("FFmpegOpusAudio with Windows options created successfully")
             except Exception as e:
-                logger.error(f"FFmpegOpusAudio failed: {e}")
-                logger.debug("Falling back to FFmpegPCMAudio...")
+                logger.error(f"FFmpegOpusAudio with Windows options failed: {e}")
+                
+                # Method 2: Try FFmpegOpusAudio with simplified options
                 try:
-                    source = discord.FFmpegPCMAudio(url, executable=FFMPEG_PATH, **FFMPEG_OPTIONS)
-                    logger.debug("FFmpegPCMAudio created successfully")
+                    logger.debug("Attempting FFmpegOpusAudio with simplified options...")
+                    simple_options = {
+                        "before_options": "-nostdin -y",
+                        "options": "-vn -b:a 128k -f opus"
+                    }
+                    source = discord.FFmpegOpusAudio(url, executable=FFMPEG_PATH, **simple_options)
+                    logger.debug("FFmpegOpusAudio with simple options created successfully")
                 except Exception as e2:
-                    logger.error(f"FFmpegPCMAudio also failed: {e2}")
-                    await ctx.send("Failed to process audio stream. Please try a different video.")
-                    return
+                    logger.error(f"FFmpegOpusAudio with simple options failed: {e2}")
+                    
+                    # Method 3: Try FFmpegPCMAudio
+                    try:
+                        logger.debug("Falling back to FFmpegPCMAudio...")
+                        pcm_options = {
+                            "before_options": "-nostdin -y",
+                            "options": "-vn -b:a 128k -ac 2 -ar 48000"
+                        }
+                        source = discord.FFmpegPCMAudio(url, executable=FFMPEG_PATH, **pcm_options)
+                        logger.debug("FFmpegPCMAudio created successfully")
+                    except Exception as e3:
+                        logger.error(f"FFmpegPCMAudio also failed: {e3}")
+                        
+                        # Method 4: Try with just the URL and let discord.py handle it
+                        try:
+                            logger.debug("Attempting to create audio source from URL directly...")
+                            source = await discord.FFmpegOpusAudio.from_probe(url, executable=FFMPEG_PATH)
+                            logger.debug("FFmpegOpusAudio.from_probe created successfully")
+                        except Exception as e4:
+                            logger.error(f"All audio source creation methods failed: {e4}")
+                            await ctx.send("Failed to process audio stream. Please try a different video.")
+                            return
 
-            vc.play(source, after=lambda e: logger.info("Finished playing!" if not e else f"Error after play: {e}"))
-            await ctx.send(f"Now playing **{title}**")
+            if source:
+                try:
+                    # Ensure voice client is still connected
+                    if not vc.is_connected():
+                        await ctx.send("❌ Voice client disconnected. Please try again.")
+                        return
+                    
+                    vc.play(source, after=lambda e: logger.info("Finished playing!" if not e else f"Error after play: {e}"))
+                    await ctx.send(f"Now playing **{title}**")
+                    
+                    # Wait a bit to ensure playback starts
+                    await asyncio.sleep(2)
+                    
+                    # Check if playback actually started and voice client is still connected
+                    if not vc.is_connected():
+                        await ctx.send("❌ Voice client disconnected during playback.")
+                        return
+                    elif not vc.is_playing():
+                        await ctx.send("❌ Playback failed to start. Please try again.")
+                        return
+                    else:
+                        logger.info("Playback started successfully!")
+                        
+                except Exception as play_error:
+                    logger.error(f"Error during playback: {play_error}")
+                    await ctx.send("❌ Error during playback. Please try a different video.")
+            else:
+                await ctx.send("Failed to create audio source. Please try a different video.")
         except Exception as e:
             logger.error(f"Error while playing audio: {e}")
             await ctx.send("An error occurred while trying to play the audio.")
@@ -219,6 +296,20 @@ class YouTubeCog(commands.Cog):
             await ctx.send("Taci dreq.")
             return
         await self.play_audio(ctx, search)
+        
+    @commands.command(name="test_voice")
+    async def test_voice(self, ctx):
+        """Test voice connection"""
+        vc = await self._ensure_connected(ctx)
+        if vc:
+            await ctx.send(f"✅ Voice connection test successful! Connected to {vc.channel.name}")
+        else:
+            await ctx.send("❌ Voice connection test failed!")
+            
+    @commands.command(name="test_audio")
+    async def test_audio(self, ctx):
+        """Test audio with a simple video"""
+        await self.play_audio(ctx, "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
 
 
 

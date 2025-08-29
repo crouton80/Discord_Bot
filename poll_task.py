@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 @tasks.loop(hours=1)
 async def daily_poll(bot):
+
     logger.debug("Starting daily_poll")
     
     for channel_id in config.CHANNEL_ID:
@@ -69,5 +70,6 @@ async def daily_poll(bot):
         await asyncio.sleep(5)
 
 def start_daily_poll(bot):
-    logger.info("Starting daily poll task")
-    daily_poll.start(bot)
+    if config.POLLS_ENABLED:
+        logger.info("Starting daily poll task")
+        daily_poll.start(bot)
