@@ -96,13 +96,50 @@ This project is a customizable Discord bot designed to offer a wide range of fun
 - **Dependencies**: Install required packages using:
   ```bash
   pip install -r requirements.txt
-- you will require to setup your own config.py file with the following variables:
-  BOT_TOKEN = "<TOKEN>"
-  TRIVIA_API_URL = "<TRIVIA_API>"
-  CHANNEL_ID = [ID1, ID2] # a list of one or more Channel IDs)
-  INCORRECT_ROLE_ID = <ROLE_ID> # role assigned if user choses wrong answer
-  TIME_LIMIT_SECONDS = 30 * 60   # time limit for response
-  VOICE_CHANNEL_ID = [<ID1>, <ID2>] # a list of one or more VOICE Channel IDs)
-  YOUTUBE_URLs = [<URL1>, <URL2>, <URL3>]
-  POLLS_ENABLED = True
-  NINEGAG_ENABLED = True
+### 🔧 Configuration (`config.py`)
+
+You will need to set up your own `config.py` file with the following variables:
+
+```python
+# Discord bot authentication token
+BOT_TOKEN = "<TOKEN>"
+
+# Trivia API endpoint URL
+TRIVIA_API_URL = "<TRIVIA_API>"
+
+# List of text channel IDs for bot activity (e.g., trivia, polls)
+CHANNEL_ID = [
+    123456789012345678,
+    987654321098765432
+]
+
+# Role ID assigned for incorrect trivia answers
+INCORRECT_ROLE_ID = 123456789012345678
+
+# Time limit (in seconds) for answering trivia questions
+TIME_LIMIT_SECONDS = 30 * 60  # 30 minutes
+
+# List of voice channel IDs for music playback and auto-join
+VOICE_CHANNEL_ID = [
+    234567890123456789,
+    876543210987654321
+]
+
+# List of YouTube URLs for music playback
+YOUTUBE_URLs = [
+    "https://youtube.com/abc123",
+    "https://youtube.com/def456",
+    "https://youtube.com/ghi789"
+]
+
+# Enable/disable polls feature
+POLLS_ENABLED = True
+
+# Enable/disable 9GAG meme integration
+NINEGAG_ENABLED = True
+
+# Enable/disable polls feature
+POLLS_ENABLED = True
+
+# Enable/disable 9GAG meme integration
+NINEGAG_ENABLED = True
