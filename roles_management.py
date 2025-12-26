@@ -1,9 +1,8 @@
 import discord
-import config
+from utils.config import Config
 import logging
 import asyncio
 
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 reactions = ['1️⃣', '2️⃣', '3️⃣', '4️⃣']
@@ -62,19 +61,19 @@ async def process_poll_results(message, all_answers, correct_answer, bot, channe
                     if user.id in users_answered:
                         continue  # Skip already processed users
                     
-                    selected_answer_index = reactions.index(reaction.emoji)
+                    selected_answer_index = reactions.index(reaction.emoji) #
                     selected_answer = all_answers[selected_answer_index]
                     users_answered.add(user.id)
 
                     member = message.guild.get_member(user.id)
-                    incorrect_role = message.guild.get_role(config.INCORRECT_ROLE_ID)
+                    incorrect_role = message.guild.get_role(Config.INCORRECT_ROLE_ID)
 
                     if not member:
                         logger.warning(f"Member {user.name} not found in the guild.")
                         continue
 
                     if not incorrect_role:
-                        logger.warning(f"Role with ID {config.INCORRECT_ROLE_ID} not found.")
+                        logger.warning(f"Role with ID {Config.INCORRECT_ROLE_ID} not found.")
                         continue
 
                     logger.debug(f"User {user.name} chose the answer: {selected_answer}")
@@ -110,7 +109,7 @@ async def assign_incorrect_role(message, user, channel):
 
     guild = message.guild
     member = guild.get_member(user.id)
-    role = guild.get_role(config.INCORRECT_ROLE_ID)
+    role = guild.get_role(Config.INCORRECT_ROLE_ID)
 
     await member.add_roles(role)
 
@@ -125,10 +124,10 @@ async def assign_incorrect_role(message, user, channel):
 
 async def assign_roles_to_non_participants(message, users_answered):
     guild = message.guild
-    role = guild.get_role(config.INCORRECT_ROLE_ID)
+    role = guild.get_role(Config.INCORRECT_ROLE_ID)
 
     if role is None:
-        print(f"Error: Role with ID {config.INCORRECT_ROLE_ID} be found.")
+        logger.error(f"Error: Role with ID {Config.INCORRECT_ROLE_ID} not found.")
         return #Stop further execution
 
     for member in guild.members:

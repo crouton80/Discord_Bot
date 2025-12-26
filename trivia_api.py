@@ -1,10 +1,10 @@
 import requests
 import random
-import config
+from utils.config import Config
 
 
 def fetch_question():
-    response = requests.get(config.TRIVIA_API_URL).json()
+    response = requests.get(Config.TRIVIA_API_URL).json()
     question_data = response['results'][0]
     
     question = question_data['question']

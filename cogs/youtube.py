@@ -1,3 +1,4 @@
+"""YouTube music playback cog."""
 import asyncio
 import time
 import discord
@@ -8,82 +9,40 @@ import os
 import re
 from urllib.parse import urlparse, parse_qs
 from collections import defaultdict
+from utils.config import Config
 
-# Set working directory to user's home directory
-# os.chdir(os.path.expanduser("~"))
+logger = logging.getLogger(__name__)
 
-# Initialize logger for debugging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger('yt_dlp')
-logger.setLevel(logging.DEBUG)
+# Banned users list
+BANNED_USERS = [330710707010142209]
 
-banned_users = [330710707010142209]
-
-# FFmpeg path for Windows - with fallback
-FFMPEG_PATH = r"C:\Users\alaric\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-7.1.1-full_build\bin\ffmpeg.exe"
-
-# Fallback: if the specific path doesn't exist, try to find ffmpeg in PATH
-if not os.path.exists(FFMPEG_PATH):
-    FFMPEG_PATH = "ffmpeg"  # Let discord.py find it in PATH
+# FFmpeg path
+FFMPEG_PATH = Config.find_ffmpeg()
 
 FFMPEG_OPTIONS = {
     "before_options": "-nostdin -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -y",
     "options": "-vn -b:a 128k -ac 2 -ar 48000",
 }
 
-@commands.command(name='join')
-async def join(ctx):
-    if ctx.author.voice is None:
-        await ctx.send("You're not connected to a voice channel.")
-        return
-    channel = ctx.author.voice.channel
-    if ctx.voice_client is None:
-        await channel.connect()
-    else:
-        await ctx.voice_client.move_to(channel)
-
-@commands.command(name='leave')
-async def leave(ctx):
-    if ctx.voice_client:
-        await ctx.voice_client.disconnect()
-
-@commands.command(name='pause')
-async def pause(ctx):
-    if ctx.voice_client.is_playing():
-        ctx.voice_client.pause()
-        await ctx.send("Playback paused.")
-
-@commands.command(name='resume')
-async def resume(ctx):
-    if ctx.voice_client.is_paused():
-        ctx.voice_client.resume()
-        await ctx.send("Playback resumed.")
-
-@commands.command(name='stop')
-async def stop(ctx):
-    if ctx.voice_client.is_playing():
-        ctx.voice_client.stop()
-        await ctx.send("Playback stopped.")
-
 
 class YouTubeCog(commands.Cog):
-    logger.debug("Loading YoutubeCog...")
-
-    def __init__(self, bot):
+    """YouTube music playback functionality."""
+    
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._join_locks = defaultdict(asyncio.Lock)  # debounces parallel connects
         # Simple per-guild playback state for seeking
         # keys: query (str), base (int seconds), started_at (monotonic), paused (bool), paused_at (monotonic|None), duration (int|None)
         self._playback: dict[int, dict] = {}
-
-    # ---- helper: connect/move without re-invoking commands ----
+    
     async def _ensure_connected(self, ctx: commands.Context, *, timeout: float = 20.0) -> discord.VoiceClient | None:
+        """Ensure bot is connected to the user's voice channel."""
         if not ctx.author or not getattr(ctx.author, "voice", None) or not ctx.author.voice.channel:
             await ctx.send("You need to be in a voice channel.")
             return None
-
-        target: discord.VoiceChannel = ctx.author.voice.channel # 
-
+        
+        target: discord.VoiceChannel = ctx.author.voice.channel
+        
         async with self._join_locks[ctx.guild.id]:
             vc: discord.VoiceClient | None = ctx.voice_client
             
@@ -111,8 +70,7 @@ class YouTubeCog(commands.Cog):
             except asyncio.TimeoutError:
                 await ctx.send("I couldn't connect to voice in time. Try again in a few seconds.")
                 return None
-
-    # ---- same existing helper, but using the safe connector above ----
+    
     def _parse_time_to_seconds(self, text: str) -> int | None:
         """Parse a timestamp like 90, 1:30, 01:02:03, or 1h2m3s into seconds."""
         if not text:
@@ -143,12 +101,12 @@ class YouTubeCog(commands.Cog):
             total = h * 3600 + mn * 60 + s
             return total if total > 0 else None
         return None
-
+    
     def _extract_start_from_query(self, query: str) -> tuple[str, int | None]:
         """Extract --start <time> from free text or t/start param from a URL. Returns (clean_query, seconds)."""
         start_seconds: int | None = None
         cleaned = query
-
+        
         # --start <time>
         m = re.search(r"\s--start\s+(\S+)", cleaned)
         if m:
@@ -157,7 +115,7 @@ class YouTubeCog(commands.Cog):
             if ss is not None:
                 start_seconds = ss
             cleaned = cleaned[:m.start()] + cleaned[m.end():]
-
+        
         # If it's a URL, also respect t= or start= query param
         try:
             u = urlparse(cleaned.strip())
@@ -180,11 +138,11 @@ class YouTubeCog(commands.Cog):
                         start_seconds = ss
         except Exception:
             pass
-
+        
         # Normalize whitespace
         cleaned = re.sub(r"\s+", " ", cleaned).strip()
         return cleaned, start_seconds
-
+    
     def _ffmpeg_opts_with_seek(self, seconds: int | None, *, format_flag: str | None = None) -> tuple[dict, dict]:
         """Build before_options/options dicts, injecting -ss if provided."""
         before = "-nostdin -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -y"
@@ -195,64 +153,91 @@ class YouTubeCog(commands.Cog):
         if format_flag == "opus":
             opts += " -f opus"
         return {"before_options": before}, {"options": opts}
-
+    
     async def play_audio(self, ctx, search: str):
+        """Play audio from YouTube URL or search query."""
         # Parse optional start time
         original_query = search
         search, start_at = self._extract_start_from_query(search)
         vc = await self._ensure_connected(ctx)
         if not vc:
             return
-            
+        
         # Ensure voice client is ready
         if not vc.is_connected():
             await ctx.send("❌ Voice client is not connected properly.")
             return
-
+        
         # Search for the YouTube video with improved options - allow m3u8 as fallback
         ydl_opts = {
             "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio/best[height<=?720]",
             "noplaylist": True,
             "quiet": False,
             "default_search": "ytsearch1",
-            "verbose": True,
-            "cookies": r"C:\Users\Lorgar\Downloads\cookies.txt",
-            "socket_timeout": 30,  # Increase timeout
+            "verbose": False,  # Reduce verbosity to avoid spam
+            "socket_timeout": 30,
             "extract_flat": False,
             "no_warnings": False,
             "prefer_ffmpeg": True,
             "extractors_args": {
                 "youtube": {
-                    "player_client": ["web", "android", "mweb"],  # Added mweb for broader compatibility
+                    "player_client": ["android", "web", "mweb"],  # Try android first for better compatibility
                     "formats": ["missing_pot"]  # Allow formats without PO token
                 }
             },
             "format_sort": ["ext:webm", "ext:mp4:m4a", "ext:mp3", "acodec:opus", "acodec:mp4a", "acodec:vorbis"],
             "format_sort_force": True,
-            "prefer_insecure": False,  # Prefer secure connections
+            "prefer_insecure": False,
+            "nocheckcertificate": False,
+            "ignoreerrors": False,
+            "no_check_certificate": False,
         }
-
+        
+        # Add cookies if file exists (optional)
+        cookies_path = r"C:\Users\Lorgar\Downloads\cookies.txt"
+        if os.path.exists(cookies_path):
+            ydl_opts["cookies"] = cookies_path
+        
         try:
             def _extract():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     info = ydl.extract_info(search, download=False)
                     return info["entries"][0] if "entries" in info else info
-
+            
             # run the blocking extract in a thread
             info = await asyncio.get_running_loop().run_in_executor(None, _extract)
-            url = info["url"]
+            
+            # Validate that we got a valid URL
+            url = info.get("url")
+            if not url:
+                logger.error("Failed to extract audio URL from video")
+                await ctx.send("❌ Failed to extract audio URL. The video might be unavailable or restricted.")
+                return
+            
+            # Check if URL is a file path (shouldn't happen with download=False, but check anyway)
+            if os.path.exists(url) or (not url.startswith(("http://", "https://")) and (url.startswith(("tmp", "temp")) or "\\" in url or "/" in url and not url.startswith("http"))):
+                logger.error(f"yt-dlp returned a file path instead of URL: {url}")
+                await ctx.send("❌ Error: Video extraction returned invalid format. Please try a different video.")
+                return
+            
+            # Ensure URL is a valid HTTP/HTTPS URL
+            if not url.startswith(("http://", "https://")):
+                logger.error(f"Invalid URL format: {url}")
+                await ctx.send("❌ Error: Invalid audio stream URL. Please try a different video.")
+                return
+            
             title = info.get("title", "Unknown Title")
             duration = info.get("duration")  # seconds or None
             # Prefer a canonical page URL to allow re-extraction on seek
             page_url = info.get("webpage_url") or info.get("original_url") or search
-
+            
             logger.debug(f"FFmpeg path: {FFMPEG_PATH}")
-            logger.debug(f"Audio URL: {url}")
+            logger.debug(f"Audio URL: {url[:100]}...")  # Log first 100 chars to avoid logging full URLs
             
             # stop current audio if any
             if vc.is_playing() or vc.is_paused():
                 vc.stop()
-
+            
             # Try multiple audio source creation methods with better error handling
             source = None
             
@@ -270,7 +255,6 @@ class YouTubeCog(commands.Cog):
                 try:
                     logger.debug("Attempting FFmpegOpusAudio with simplified options...")
                     before, opts = self._ffmpeg_opts_with_seek(start_at, format_flag="opus")
-                    # Use a simpler before_options but keep -ss if needed
                     simple_before = "-nostdin -y"
                     if start_at is not None:
                         simple_before = f"-nostdin -ss {start_at} -y"
@@ -284,7 +268,6 @@ class YouTubeCog(commands.Cog):
                     try:
                         logger.debug("Falling back to FFmpegPCMAudio...")
                         before, opts = self._ffmpeg_opts_with_seek(start_at)
-                        # Keep simpler before_options for PCM too
                         simple_before = "-nostdin -y"
                         if start_at is not None:
                             simple_before = f"-nostdin -ss {start_at} -y"
@@ -309,7 +292,7 @@ class YouTubeCog(commands.Cog):
                             logger.error(f"All audio source creation methods failed: {e4}")
                             await ctx.send("Failed to process audio stream. Please try a different video.")
                             return
-
+            
             if source:
                 try:
                     # Ensure voice client is still connected
@@ -351,31 +334,33 @@ class YouTubeCog(commands.Cog):
         except Exception as e:
             logger.error(f"Error while playing audio: {e}")
             await ctx.send("An error occurred while trying to play the audio.")
-
-    # ---- commands (no calling commands from commands) ----
-
+    
     @commands.command(name="reload")
     @commands.is_owner()
     async def reload(self, ctx: commands.Context, extension: str):
+        """Reload a bot extension."""
         await ctx.bot.reload_extension(extension)
         await ctx.send(f"Reloaded `{extension}` successfully.")
-
+    
     @commands.command(name="join")
     async def join(self, ctx):
+        """Join the user's voice channel."""
         vc = await self._ensure_connected(ctx)
         if vc:
-            await logger.debug(f"Joined **{vc.channel.name}**.")
-
+            await ctx.send(f"Joined **{vc.channel.name}**.")
+    
     @commands.command(name="leave")
     async def leave(self, ctx):
+        """Leave the current voice channel."""
         if ctx.voice_client:
             await ctx.voice_client.disconnect(force=True)
             await ctx.send("Disconnected.")
         else:
             await ctx.send("I'm not in a voice channel.")
-
+    
     @commands.command(name="pause")
     async def pause(self, ctx):
+        """Pause the current playback."""
         vc = ctx.voice_client
         if vc and vc.is_playing():
             vc.pause()
@@ -386,9 +371,10 @@ class YouTubeCog(commands.Cog):
             await ctx.send("Paused ⏸️")
         else:
             await ctx.send("Nothing is playing.")
-
+    
     @commands.command(name="resume")
     async def resume(self, ctx):
+        """Resume paused playback."""
         vc = ctx.voice_client
         if vc and vc.is_paused():
             vc.resume()
@@ -403,9 +389,10 @@ class YouTubeCog(commands.Cog):
             await ctx.send("Resumed ▶️")
         else:
             await ctx.send("Nothing to resume.")
-
+    
     @commands.command(name="stop")
     async def stop(self, ctx):
+        """Stop the current playback."""
         vc = ctx.voice_client
         if vc and (vc.is_playing() or vc.is_paused()):
             vc.stop()
@@ -414,41 +401,40 @@ class YouTubeCog(commands.Cog):
             await ctx.send("Stopped ⏹️")
         else:
             await ctx.send("Nothing to stop.")
-
+    
     @commands.command(name="play")
     async def play(self, ctx, *, search: str):
-        # Keep your banned list usage, but make it safe if it's not defined
-        banned = globals().get("banned_users", set())
-        if ctx.author.id in banned:
+        """Play audio from YouTube URL or search query."""
+        if ctx.author.id in BANNED_USERS:
             await ctx.send("Taci dreq.")
             return
         await self.play_audio(ctx, search)
-        
+    
     @commands.command(name="test_voice")
     async def test_voice(self, ctx):
-        """Test voice connection"""
+        """Test voice connection."""
         vc = await self._ensure_connected(ctx)
         if vc:
             await ctx.send(f"✅ Voice connection test successful! Connected to {vc.channel.name}")
         else:
             await ctx.send("❌ Voice connection test failed!")
-        
+    
     @commands.command(name="test_audio")
     async def test_audio(self, ctx):
-        """Test audio with a simple video"""
+        """Test audio with a simple video."""
         await self.play_audio(ctx, "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-
-    # ---- seeking helpers/commands ----
-
+    
     def _format_ts(self, s: int) -> str:
+        """Format seconds as timestamp string."""
         s = max(0, int(s))
         h, rem = divmod(s, 3600)
         m, s = divmod(rem, 60)
         if h:
             return f"{h}:{m:02d}:{s:02d}"
         return f"{m}:{s:02d}"
-
+    
     def _current_position(self, guild_id: int) -> int | None:
+        """Get current playback position in seconds."""
         st = self._playback.get(guild_id)
         if not st:
             return None
@@ -465,8 +451,9 @@ class YouTubeCog(commands.Cog):
         if isinstance(dur, int):
             pos = min(pos, max(0, dur - 1))
         return max(0, pos)
-
+    
     async def _restart_at(self, ctx: commands.Context, target_seconds: int):
+        """Restart playback at a specific time."""
         st = self._playback.get(ctx.guild.id)
         if not st:
             await ctx.send("No track to seek in.")
@@ -481,10 +468,10 @@ class YouTubeCog(commands.Cog):
             target_seconds = max(0, min(int(target_seconds), max(0, dur - 1)))
         else:
             target_seconds = max(0, int(target_seconds))
-
+        
         # Restart playback using the stored query and new start time
         await self.play_audio(ctx, f"{query} --start {target_seconds}")
-
+    
     @commands.command(name="seek")
     async def seek_cmd(self, ctx: commands.Context, *, time_spec: str):
         """Seek to or by time. Examples: seek +10, seek -5, seek 1:23"""
@@ -513,9 +500,10 @@ class YouTubeCog(commands.Cog):
             target = abs_pos
         await self._restart_at(ctx, int(target))
         await ctx.send(f"⏩ Moved to {self._format_ts(int(target))}")
-
+    
     @commands.command(name="forward")
     async def forward_cmd(self, ctx: commands.Context, *, amount: str):
+        """Forward playback by specified time."""
         secs = self._parse_time_to_seconds(amount)
         if secs is None:
             await ctx.send("Usage: forward <seconds|mm:ss|hh:mm:ss>")
@@ -527,9 +515,10 @@ class YouTubeCog(commands.Cog):
         target = current + secs
         await self._restart_at(ctx, int(target))
         await ctx.send(f"⏭️ Forward to {self._format_ts(int(target))}")
-
+    
     @commands.command(name="back", aliases=["backward"])
     async def back_cmd(self, ctx: commands.Context, *, amount: str):
+        """Rewind playback by specified time."""
         secs = self._parse_time_to_seconds(amount)
         if secs is None:
             await ctx.send("Usage: back <seconds|mm:ss|hh:mm:ss>")
@@ -543,6 +532,7 @@ class YouTubeCog(commands.Cog):
         await ctx.send(f"⏮️ Back to {self._format_ts(int(target))}")
 
 
-
-async def setup(bot):
+async def setup(bot: commands.Bot):
+    """Setup function for the cog."""
     await bot.add_cog(YouTubeCog(bot))
+

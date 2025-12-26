@@ -135,5 +135,8 @@ temp_audio_*.webm
 temp_audio_*.m4a
 *.tmp
 
-
+# Configuration files (may contain sensitive data)
 config.py
+.env
+
+Discord_Bot.zip

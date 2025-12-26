@@ -4,13 +4,10 @@ import asyncio
 from discord.ext import tasks
 import trivia_api
 import roles_management
-import config
 import html
 import logging
-import test_permissions
-import youtube
+from utils.config import Config
 
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 @tasks.loop(hours=1)
@@ -18,7 +15,7 @@ async def daily_poll(bot):
 
     logger.debug("Starting daily_poll")
     
-    for channel_id in config.CHANNEL_ID:
+    for channel_id in Config.CHANNEL_IDS:
         channel = bot.get_channel(channel_id)
         
         if channel is None:
@@ -44,8 +41,8 @@ async def daily_poll(bot):
             logger.debug("Reactions added to poll message")
 
             # Wait for response (30 minutes)
-            logger.debug(f"Waiting for {config.TIME_LIMIT_SECONDS} seconds")
-            await asyncio.sleep(config.TIME_LIMIT_SECONDS)
+            logger.debug(f"Waiting for {Config.TIME_LIMIT_SECONDS} seconds")
+            await asyncio.sleep(Config.TIME_LIMIT_SECONDS)
             logger.debug("Wait time completed")
 
             # Fetch reactions and manage roles for correct/incorrect answers
@@ -70,6 +67,9 @@ async def daily_poll(bot):
         await asyncio.sleep(5)
 
 def start_daily_poll(bot):
-    if config.POLLS_ENABLED:
-        logger.info("Starting daily poll task")
-        daily_poll.start(bot)
+    if Config.get_setting("polls_enabled"):
+        if not daily_poll.is_running():
+            logger.info("Starting daily poll task")
+            daily_poll.start(bot)
+        else:
+            logger.debug("Daily poll task is already running")
